@@ -1,6 +1,6 @@
-FROM --platform=linux/amd64 460727315916.dkr.ecr.us-west-1.amazonaws.com/ecr-public/datadog/lambda-extension:latest as dd
+FROM --platform=linux/amd64 {REPLAE_WITH_ACCOUNT_NUMBER}.dkr.ecr.us-west-1.amazonaws.com/ecr-public/datadog/lambda-extension:latest as dd
 
-FROM --platform=linux/amd64 460727315916.dkr.ecr.us-west-1.amazonaws.com/ecr-public/lambda/nodejs:16.2022.08.17.10 as build
+FROM --platform=linux/amd64 {REPLAE_WITH_ACCOUNT_NUMBER}.dkr.ecr.us-west-1.amazonaws.com/ecr-public/lambda/nodejs:16.2022.08.17.10 as build
 WORKDIR /build
 COPY package*.json ./
 COPY .npmrc ./
@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM --platform=linux/amd64 460727315916.dkr.ecr.us-west-1.amazonaws.com/ecr-public/lambda/nodejs:16.2022.08.17.10
+FROM --platform=linux/amd64 {REPLAE_WITH_ACCOUNT_NUMBER}.dkr.ecr.us-west-1.amazonaws.com/ecr-public/lambda/nodejs:16.2022.08.17.10
 WORKDIR ${LAMBDA_TASK_ROOT}
 COPY package*.json ./
 COPY .npmrc ./
