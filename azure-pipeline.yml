@@ -1,0 +1,155 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - 'platform/properties/data-pipeline/*'
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - 'platform/properties/data-pipeline/*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: TEST
+    jobs:
+      - deployment: DeployCdk
+        displayName: deploy cdk stack
+        pool:
+          vmImage: 'Ubuntu-latest'
+        # creates an environment if it doesn't exist
+        environment: properties-data-pipeline-test
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: NodeTool@0
+                  inputs:
+                    versionSpec: '16.x'
+
+                - task: UseRubyVersion@0
+                  inputs:
+                    versionSpec: '>= 2.4'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS Service Connection'
+                    regionName: 'us-east-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Logging in to CodeArtifact"
+                      aws codeartifact login --tool npm --repository bonushomes --domain bonushomes --domain-owner 460727315916 --region=us-east-1
+                      cd platform
+                      cp ~/.npmrc .
+                  displayName: 'Login to AWS Code Artifact'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS AzureDevops ECRUser'
+                    regionName: 'us-west-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Logging in to ECR"
+                      aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 460727315916.dkr.ecr.us-west-1.amazonaws.com
+                  displayName: 'Login to AWS ECR'
+
+                - script: |
+                    echo "Installing packages"
+                    sudo npm install -g aws-cdk
+                  workingDirectory: platform/
+                  displayName: 'Installing aws cdk'
+
+                - script: |
+                    echo "Installing project dependencies"
+                    sudo npm install
+                  workingDirectory: platform/
+                  displayName: 'Installing project dependencies'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS Service Connection'
+                    regionName: 'us-west-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Deploying Properties Data Pipeline CDK App "
+                      cd platform/
+                      cdk diff property-bridge-stack-test
+                      cdk deploy property-bridge-stack-test
+                  displayName: 'CDK Diff & Deploy'
+  - stage: PROD
+    jobs:
+      - deployment: DeployCdk
+        displayName: deploy cdk stack
+        pool:
+          vmImage: 'Ubuntu-latest'
+        # creates an environment if it doesn't exist
+        environment: properties-data-pipeline-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: NodeTool@0
+                  inputs:
+                    versionSpec: '16.x'
+
+                - task: UseRubyVersion@0
+                  inputs:
+                    versionSpec: '>= 2.4'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS Service Connection'
+                    regionName: 'us-east-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Logging in to CodeArtifact"
+                      aws codeartifact login --tool npm --repository bonushomes --domain bonushomes --domain-owner 460727315916 --region=us-east-1
+                      cd platform
+                      cp ~/.npmrc .
+                    workingDirectory: platform/
+                  displayName: 'Login to AWS Code Artifact'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS AzureDevops ECRUser'
+                    regionName: 'us-west-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Logging in to ECR"
+                      aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 460727315916.dkr.ecr.us-west-1.amazonaws.com
+                  displayName: 'Login to AWS ECR'
+
+                - script: |
+                    echo "Installing packages"
+                    sudo npm install -g aws-cdk
+                  workingDirectory: platform/
+                  displayName: 'Installing aws cdk'
+
+                - script: |
+                    echo "Installing project dependencies"
+                    sudo npm install
+                  workingDirectory: platform/
+                  displayName: 'Installing project dependencies'
+
+                - task: AWSShellScript@1
+                  inputs:
+                    awsCredentials: 'AWS Service Connection'
+                    regionName: 'us-west-1'
+                    scriptType: 'inline'
+                    inlineScript: |
+                      echo "Deploying Properties Data Pipeline CDK App"
+                      cd platform/
+                      PROD=true cdk diff property-bridge-stack-prod
+                      PROD=true cdk deploy property-bridge-stack-prod
+                  displayName: 'CDK Diff & Deploy'
